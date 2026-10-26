@@ -35,6 +35,10 @@ export const redirectUri = new URL(
   window.location.origin,
 ).href;
 
+// Set before logoutRedirect so the reloaded app knows it is returning from
+// logout and can clear all remaining browser state.
+export const logoutPendingKey = "entra-obo-demo.logout-pending";
+
 const msalConfig: Configuration = {
   auth: {
     clientId,

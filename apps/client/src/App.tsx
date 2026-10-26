@@ -2,7 +2,7 @@ import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useState } from "react";
 
 import { fetchFromServiceA } from "./api";
-import { redirectUri, serviceAScope } from "./authConfig";
+import { logoutPendingKey, redirectUri, serviceAScope } from "./authConfig";
 import { useApiToken } from "./useApiToken";
 
 type PanelState = {
@@ -54,23 +54,20 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    setLoginError("");
+    // logoutRedirect leaves the page, so the flag survives in sessionStorage
+    // and is consumed by main.tsx when the app loads again.
+    window.sessionStorage.setItem(logoutPendingKey, "1");
+
     try {
-      await instance.logoutPopup({
-        account: account ?? undefined,
-        postLogoutRedirectUri: redirectUri,
-      });
-    } catch (error) {
-      console.warn("logoutPopup failed, falling back to logoutRedirect", error);
       await instance.logoutRedirect({
         account: account ?? undefined,
         postLogoutRedirectUri: redirectUri,
       });
-      return;
+    } catch (error) {
+      window.sessionStorage.removeItem(logoutPendingKey);
+      setLoginError(formatError(error));
     }
-
-    window.localStorage.clear();
-    window.sessionStorage.clear();
-    window.location.replace("/");
   };
 
   const loadServiceA = async () => {

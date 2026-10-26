@@ -4,13 +4,21 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import App from "./App";
-import { msalInstance } from "./authConfig";
+import { logoutPendingKey, msalInstance } from "./authConfig";
 import "./styles.css";
 
 async function bootstrap() {
   await msalInstance.initialize();
 
   const redirectResult = await msalInstance.handleRedirectPromise();
+
+  // Returned from logoutRedirect: clear everything left in this origin.
+  if (window.sessionStorage.getItem(logoutPendingKey) === "1") {
+    msalInstance.setActiveAccount(null);
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  }
+
   if (redirectResult?.account) {
     msalInstance.setActiveAccount(redirectResult.account);
   } else {
