@@ -45,6 +45,21 @@ def _jwks_client() -> PyJWKClient:
     )
 
 
+def _accepted_issuers(claims: dict[str, Any]) -> list[str]:
+    """Accept v2 tokens and v1 tokens issued by the token's tenant.
+
+    The API app registration's "accessTokenAcceptedVersion" manifest value
+    decides whether Entra issues a v2 issuer or the legacy sts.windows.net
+    issuer for tokens whose audience is this API. The tenant itself is checked
+    separately below.
+    """
+    issuers = {str(_openid_metadata()["issuer"]).rstrip("/")}
+    tenant_id = str(claims.get("tid", "")).strip()
+    if tenant_id:
+        issuers.add(f"https://sts.windows.net/{tenant_id}".rstrip("/"))
+    return sorted(issuers)
+
+
 def require_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> Principal:
@@ -63,8 +78,11 @@ def require_token(
             signing_key.key,
             algorithms=["RS256"],
             audience=list(settings.accepted_audiences),
-            issuer=_openid_metadata()["issuer"],
-            options={"require": ["exp", "iat", "aud", "iss"]},
+            options={
+                "require": ["exp", "iat", "aud", "iss"],
+                # Issuer is validated below so both v1 and v2 tokens work.
+                "verify_iss": False,
+            },
         )
     except (PyJWKClientConnectionError, httpx.HTTPError) as exc:
         raise HTTPException(
@@ -77,6 +95,19 @@ def require_token(
             detail=f"Invalid access token: {exc}",
             headers=_UNAUTHORIZED_HEADERS,
         ) from exc
+
+    issuer = str(claims.get("iss", "")).rstrip("/")
+    accepted_issuers = _accepted_issuers(claims)
+    if issuer not in accepted_issuers:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                f"Invalid access token: unexpected issuer {issuer!r} "
+                f"(ver={claims.get('ver')!r}, accepted issuers: "
+                f"{accepted_issuers})."
+            ),
+            headers=_UNAUTHORIZED_HEADERS,
+        )
 
     if str(claims.get("tid", "")).lower() != settings.tenant_id.lower():
         raise HTTPException(
