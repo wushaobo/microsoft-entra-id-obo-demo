@@ -5,7 +5,7 @@ On-Behalf-Of (OBO) flow:
 
 | Service | Tech | Port | Role |
 |---|---|---|---|
-| `apps/client` | React + TypeScript + Vite + MSAL | 5173 | SPA sign-in, calls Service A |
+| `apps/client` | React + TypeScript + Vite + MSAL | 5173 | frontend sign-in, calls Service A |
 | `apps/service_a` | FastAPI + Python | 8001 | Upstream API, performs OBO for Service B |
 | `apps/service_b` | FastAPI + Python | 8002 | Downstream API |
 
@@ -21,56 +21,57 @@ Endpoints:
 sequenceDiagram
     autonumber
     actor User
-    participant SPA as React SPA
-    participant MSAL as MSAL Browser
+    participant SPA as Frontend
     participant Entra as Microsoft Entra ID
     participant A as Service A
     participant B as Service B
 
-    Note over SPA: Redirect URI is /redirect.html
-    User->>SPA: Sign in with Microsoft
-    SPA->>MSAL: loginPopup(scope=api://A/access_as_user, PKCE)
-    MSAL->>Entra: /authorize
-    Entra-->>User: Sign-in and consent
-    Entra-->>SPA: /redirect.html (code, state)
-    SPA->>MSAL: broadcastResponseToMainFrame(), then /token
-    MSAL-->>SPA: ID token and A access token (aud=A, scp=access_as_user)
+    User->>SPA: Start to sign in
+    SPA->>Entra: Authorize request (scope=api://A/access_as_user)
+    Entra-->>User: Sign-in and consent page
+    User->>Entra: Credentials and consent
+    Entra-->>SPA: Redirect with authorization code (/redirect)
+    SPA->>Entra: Token request (authorization code)
+    Entra-->>SPA: ID token + A access token (aud=A, scp=access_as_user)
+    SPA-->>User: Signed-in view
 
-    User->>SPA: get data from service A
-    SPA->>A: GET /api/data (Bearer A token)
-    Note over A: Validate signature, iss, aud, tid, scp<br/>rid = X-Request-ID or new id
+    User->>SPA: Get data from service A
+    SPA->>A: GET /api/data (Bearer A-token)
+    Note over A: Validate A-token
     A-->>SPA: 200 {data, source}
+    SPA-->>User: Show data
 
-    User->>SPA: get data from service B
-    SPA->>A: GET /api/data-from-downstream (Bearer A token)
-    Note over A: Validate A token, reuse or generate rid
-    A->>Entra: OBO /token (assertion=A token, scope=api://B/access_as_user)
+    User->>SPA: Get data from service B
+    SPA->>A: GET /api/data-from-downstream (Bearer A-token)
+    Note over A: Validate A-token
+    A->>Entra: OBO token request (assertion=A-token, scope=api://B/access_as_user)
     Entra-->>A: B access token (aud=B, scp=access_as_user)
-    A->>B: GET /api/data (Bearer B token, X-Request-ID=rid)
-    Note over B: Validate B token, reuse rid
+    A->>B: GET /api/data (Bearer B-token)
+    Note over B: Validate B-token
     B-->>A: 200 {data, source}
     A-->>SPA: 200 {data, source}
+    SPA-->>User: Show data
 
-    User->>SPA: Sign out
-    SPA->>Entra: logoutRedirect(post_logout_redirect_uri=/redirect.html)
-    Entra-->>SPA: /redirect.html
-    SPA->>SPA: broadcastResponseToMainFrame(), then return to / and clear storage
+    User->>SPA: Start to sign out
+    SPA->>Entra: Sign-out request (post-logout redirect to /redirect)
+    Entra-->>SPA: Redirect to /redirect
+    Note over SPA: Return to / and clear cached session
+    SPA-->>User: Signed-out view
 ```
 
-Service A generates the request ID at its API boundary (or reuses a valid
-inbound `X-Request-ID`) and forwards it to Service B, so the auth, OBO,
-downstream-call, and Service B logs share the same `rid`.
+`/` and `/redirect` are pages of the same frontend app; `/redirect`
+is the registered redirect URI used to complete sign-in and sign-out.
 
 ## Entra app registrations
 
 Three single-tenant app registrations are required:
 
-- **SPA**: platform `Single-page application`, redirect URI
-  `http://localhost:5173/redirect.html`; delegated permission to Service A's
+- **Frontend app**: platform `Single-page application`, redirect URI
+  `http://localhost:5173/redirect`; delegated permission to Service A's
   `access_as_user` scope with admin consent.
 - **Service A**: expose `api://<A-client-id>/access_as_user`; client secret;
   delegated permission to Service B's `access_as_user` scope with admin consent;
-  add the SPA as an authorized client application.
+  add the frontend app as an authorized client application.
 - **Service B**: expose `api://<B-client-id>/access_as_user`; add Service A as an
   authorized client application.
 
@@ -122,7 +123,14 @@ Application logs are written to stdout alongside uvicorn access logs:
 12:34:56 | INFO    | app.main | DOWNSTREAM OK | rid=7f3a9c1d2e4b | GET http://localhost:8002/api/data | status=200 | duration_ms=12.4 | bytes=52
 ```
 
+Service A generates the request ID at its API boundary (or reuses a valid
+inbound `X-Request-ID`) and forwards it to Service B, so the auth, OBO,
+downstream-call, and Service B logs share the same `rid`.
+
 Validation failures and OBO errors are logged at `WARNING`/`ERROR` with the
 same `rid`, a reason, and the relevant claims. Full tokens, client secrets, and user PII
 (email, name, UPN) are never logged; token values are reduced to their last 6
 characters.
+
+The `iss`/`ver` fields show the token version; both v1 (`sts.windows.net`) and
+v2 (`login.microsoftonline.com/.../v2.0`) issuers are accepted.

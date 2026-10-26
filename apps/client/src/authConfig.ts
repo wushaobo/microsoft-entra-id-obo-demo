@@ -31,7 +31,7 @@ export const serviceABaseUrl = env.VITE_SERVICE_A_BASE_URL.replace(/\/+$/, "");
 // msal-browser 5.x needs a dedicated redirect page that runs the redirect
 // bridge. Register this exact URI as a SPA redirect URI in Entra.
 export const redirectUri = new URL(
-  "/redirect.html",
+  "/redirect",
   window.location.origin,
 ).href;
 
