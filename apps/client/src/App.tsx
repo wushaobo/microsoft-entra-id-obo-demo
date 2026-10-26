@@ -1,16 +1,21 @@
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useState } from "react";
 
-import { fetchFromServiceA } from "./api";
+import { fetchFromServiceA, serviceARequestUri } from "./api";
 import { logoutPendingKey, redirectUri, serviceAScope } from "./authConfig";
 import { useApiToken } from "./useApiToken";
 
 type PanelState = {
   loading: boolean;
   output: string;
+  requestUri: string;
 };
 
-const emptyPanel: PanelState = { loading: false, output: "" };
+const emptyPanel: PanelState = {
+  loading: false,
+  output: "",
+  requestUri: "",
+};
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -71,27 +76,37 @@ export default function App() {
   };
 
   const loadServiceA = async () => {
-    setServiceA({ loading: true, output: "" });
+    const requestUri = serviceARequestUri("/api/data");
+    setServiceA({ loading: true, output: "", requestUri });
     try {
       const accessToken = await getToken();
       const body = await fetchFromServiceA("/api/data", accessToken);
-      setServiceA({ loading: false, output: formatResponse(body) });
+      setServiceA({ loading: false, output: formatResponse(body), requestUri });
     } catch (error) {
-      setServiceA({ loading: false, output: formatError(error) });
+      setServiceA({
+        loading: false,
+        output: formatError(error),
+        requestUri,
+      });
     }
   };
 
   const loadServiceB = async () => {
-    setServiceB({ loading: true, output: "" });
+    const requestUri = serviceARequestUri("/api/data-from-downstream");
+    setServiceB({ loading: true, output: "", requestUri });
     try {
       const accessToken = await getToken();
       const body = await fetchFromServiceA(
         "/api/data-from-downstream",
         accessToken,
       );
-      setServiceB({ loading: false, output: formatResponse(body) });
+      setServiceB({ loading: false, output: formatResponse(body), requestUri });
     } catch (error) {
-      setServiceB({ loading: false, output: formatError(error) });
+      setServiceB({
+        loading: false,
+        output: formatError(error),
+        requestUri,
+      });
     }
   };
 
@@ -127,13 +142,18 @@ export default function App() {
         <main className="panels">
           <section className="panel">
             <h2>Service A</h2>
-            <button
-              type="button"
-              onClick={() => void loadServiceA()}
-              disabled={serviceA.loading}
-            >
-              {serviceA.loading ? "Loading..." : "get data from service A"}
-            </button>
+            <div className="request-row">
+              <button
+                type="button"
+                onClick={() => void loadServiceA()}
+                disabled={serviceA.loading}
+              >
+                {serviceA.loading ? "Loading..." : "get data from service A"}
+              </button>
+              {serviceA.requestUri && (
+                <code className="request-uri">{serviceA.requestUri}</code>
+              )}
+            </div>
             <textarea
               readOnly
               value={serviceA.output}
@@ -143,13 +163,18 @@ export default function App() {
 
           <section className="panel">
             <h2>Service B (via Service A OBO)</h2>
-            <button
-              type="button"
-              onClick={() => void loadServiceB()}
-              disabled={serviceB.loading}
-            >
-              {serviceB.loading ? "Loading..." : "get data from service B"}
-            </button>
+            <div className="request-row">
+              <button
+                type="button"
+                onClick={() => void loadServiceB()}
+                disabled={serviceB.loading}
+              >
+                {serviceB.loading ? "Loading..." : "get data from service B"}
+              </button>
+              {serviceB.requestUri && (
+                <code className="request-uri">{serviceB.requestUri}</code>
+              )}
+            </div>
             <textarea
               readOnly
               value={serviceB.output}

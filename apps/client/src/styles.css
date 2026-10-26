@@ -101,6 +101,20 @@ button.primary {
   font-size: 16px;
 }
 
+.request-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.request-uri {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #57606a;
+  word-break: break-all;
+}
+
 .panel textarea {
   width: 100%;
   min-height: 120px;
