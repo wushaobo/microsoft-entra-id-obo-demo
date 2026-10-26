@@ -5,6 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .auth import Principal, require_token
 from .config import settings
+from .logging_config import configure_logging
+
+configure_logging()
 
 app = FastAPI(title="Service B", version="0.1.0")
 
