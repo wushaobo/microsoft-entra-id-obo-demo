@@ -2,7 +2,7 @@ import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useState } from "react";
 
 import { fetchFromServiceA } from "./api";
-import { serviceAScope } from "./authConfig";
+import { redirectUri, serviceAScope } from "./authConfig";
 import { useApiToken } from "./useApiToken";
 
 type PanelState = {
@@ -57,13 +57,13 @@ export default function App() {
     try {
       await instance.logoutPopup({
         account: account ?? undefined,
-        postLogoutRedirectUri: window.location.origin,
+        postLogoutRedirectUri: redirectUri,
       });
     } catch (error) {
       console.warn("logoutPopup failed, falling back to logoutRedirect", error);
       await instance.logoutRedirect({
         account: account ?? undefined,
-        postLogoutRedirectUri: window.location.origin,
+        postLogoutRedirectUri: redirectUri,
       });
       return;
     }

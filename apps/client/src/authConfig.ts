@@ -28,12 +28,19 @@ const clientId = env.VITE_ENTRA_CLIENT_ID;
 export const serviceAScope = env.VITE_SERVICE_A_SCOPE;
 export const serviceABaseUrl = env.VITE_SERVICE_A_BASE_URL.replace(/\/+$/, "");
 
+// msal-browser 5.x needs a dedicated redirect page that runs the redirect
+// bridge. Register this exact URI as a SPA redirect URI in Entra.
+export const redirectUri = new URL(
+  "/redirect.html",
+  window.location.origin,
+).href;
+
 const msalConfig: Configuration = {
   auth: {
     clientId,
     authority: `https://login.microsoftonline.com/${tenantId}`,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
+    redirectUri,
+    postLogoutRedirectUri: redirectUri,
   },
   cache: {
     cacheLocation: "localStorage",
