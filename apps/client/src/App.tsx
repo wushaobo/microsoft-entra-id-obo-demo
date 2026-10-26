@@ -41,7 +41,7 @@ export default function App() {
   const account = instance.getActiveAccount() ?? accounts[0];
   const displayName = account?.name?.trim();
   const statusText = !isAuthenticated
-    ? "Not logged in"
+    ? ""
     : account
       ? displayName && displayName !== account.username
         ? `Signed in as ${displayName} (${account.username})`
@@ -116,7 +116,7 @@ export default function App() {
         <div className="status-area">
           {!isAuthenticated && (
             <button type="button" className="primary" onClick={() => void handleLogin()}>
-              Login
+              Sign in with Microsoft
             </button>
           )}
           <span className="status">{statusText}</span>
@@ -131,7 +131,7 @@ export default function App() {
               void handleLogout();
             }}
           >
-            Logout
+            Sign out
           </a>
         )}
       </header>
@@ -157,7 +157,7 @@ export default function App() {
             <textarea
               readOnly
               value={serviceA.output}
-              placeholder="Service A response will appear here"
+              placeholder="Response data will appear here"
             />
           </section>
 
@@ -178,7 +178,7 @@ export default function App() {
             <textarea
               readOnly
               value={serviceB.output}
-              placeholder="Service B response will appear here"
+              placeholder="Response data will appear here"
             />
           </section>
         </main>
