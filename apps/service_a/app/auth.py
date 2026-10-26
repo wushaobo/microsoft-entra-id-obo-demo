@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientConnectionError
@@ -25,6 +25,12 @@ _UNAUTHORIZED_HEADERS = {"WWW-Authenticate": "Bearer"}
 class Principal:
     claims: dict[str, Any]
     access_token: str
+
+
+def _abbreviate_token(token: str, head: int = 12, tail: int = 6) -> str:
+    if len(token) <= head + tail + 3:
+        return f"{token[:4]}...({len(token)} chars)"
+    return f"{token[:head]}...{token[-tail:]} ({len(token)} chars)"
 
 
 @lru_cache(maxsize=1)
@@ -61,6 +67,7 @@ def _accepted_issuers(claims: dict[str, Any]) -> list[str]:
 
 
 def require_token(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> Principal:
     if credentials is None or credentials.scheme.lower() != "bearer":
@@ -128,10 +135,18 @@ def require_token(
         )
 
     logger.info(
-        "Authenticated token aud=%s scp=%s tid=%s oid=%s",
+        "AUTH OK | %s %s | scheme=%s | token=%s | aud=%s | iss=%s | scp=%s | "
+        "oid=%s | tid=%s | ver=%s | azp=%s",
+        request.method,
+        request.url.path,
+        credentials.scheme,
+        _abbreviate_token(token),
         claims.get("aud"),
+        claims.get("iss"),
         claims.get("scp"),
-        claims.get("tid"),
         claims.get("oid") or claims.get("sub"),
+        claims.get("tid"),
+        claims.get("ver"),
+        claims.get("azp") or claims.get("appid"),
     )
     return Principal(claims=claims, access_token=token)

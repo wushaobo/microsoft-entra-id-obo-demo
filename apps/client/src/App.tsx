@@ -74,8 +74,8 @@ export default function App() {
     setServiceA({ loading: true, output: "" });
     try {
       const accessToken = await getToken();
-      const body = await fetchFromServiceA("/api/message", accessToken);
-      setServiceA({ loading: false, output: body });
+      const body = await fetchFromServiceA("/api/data", accessToken);
+      setServiceA({ loading: false, output: formatResponse(body) });
     } catch (error) {
       setServiceA({ loading: false, output: formatError(error) });
     }
@@ -85,7 +85,10 @@ export default function App() {
     setServiceB({ loading: true, output: "" });
     try {
       const accessToken = await getToken();
-      const body = await fetchFromServiceA("/api/message-from-b", accessToken);
+      const body = await fetchFromServiceA(
+        "/api/data-from-downstream",
+        accessToken,
+      );
       setServiceB({ loading: false, output: formatResponse(body) });
     } catch (error) {
       setServiceB({ loading: false, output: formatError(error) });

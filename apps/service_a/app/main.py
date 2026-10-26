@@ -3,7 +3,6 @@ from __future__ import annotations
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
 
 from .auth import Principal, require_token
 from .config import settings
@@ -25,18 +24,23 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/message", response_class=PlainTextResponse)
-def message(_: Principal = Depends(require_token)) -> str:
-    return "This message is from Service A."
+@app.get("/api/data")
+def get_data(_: Principal = Depends(require_token)) -> dict[str, str]:
+    return {
+        "data": "This message is from Service A.",
+        "source": "service-a",
+    }
 
 
-@app.get("/api/message-from-b")
-def message_from_b(principal: Principal = Depends(require_token)) -> dict[str, object]:
+@app.get("/api/data-from-downstream")
+def get_data_from_downstream(
+    principal: Principal = Depends(require_token),
+) -> dict[str, str]:
     b_access_token = acquire_token_for_service_b(principal.access_token)
 
     try:
         response = httpx.get(
-            f"{settings.service_b_base_url}/api/message",
+            f"{settings.service_b_base_url}/api/data",
             headers={"Authorization": f"Bearer {b_access_token}"},
             timeout=15.0,
         )
@@ -56,9 +60,27 @@ def message_from_b(principal: Principal = Depends(require_token)) -> dict[str, o
             },
         )
 
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "error": "service_b_error",
+                "body": response.text[:1000],
+            },
+        ) from exc
+
+    if not isinstance(payload, dict) or "data" not in payload:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "error": "service_b_error",
+                "body": response.text[:1000],
+            },
+        )
+
     return {
-        "message": response.text,
-        "source": "service-b",
-        "via": "service-a-obo",
-        "upstream_status": response.status_code,
+        "data": str(payload["data"]),
+        "source": str(payload.get("source", "service-b")),
     }
