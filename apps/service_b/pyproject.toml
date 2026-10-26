@@ -1,0 +1,15 @@
+[project]
+name = "entra-obo-service-b"
+version = "0.1.0"
+description = "Service B - pure API protected by Microsoft Entra ID"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
+    "python-dotenv>=1.2.0",
+    "pyjwt[crypto]>=2.15.0",
+    "httpx>=0.28.1",
+]
+
+[tool.uv]
+package = false
